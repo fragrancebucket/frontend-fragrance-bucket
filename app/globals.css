@@ -1,0 +1,225 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+}
+:root {
+  --background: #f8f3e9;
+  --foreground: #251f18;
+  --card: #fffdf8;
+  --card-foreground: #251f18;
+  --primary: #8a6b2e;
+  --primary-foreground: #fffaf0;
+  --muted: #eee6d8;
+  --muted-foreground: #70685e;
+  --border: #ded2bf;
+}
+.dark {
+  --background: #181714;
+  --foreground: #f7f1e6;
+  --card: #25231e;
+  --card-foreground: #f7f1e6;
+  --primary: #d8bc7a;
+  --primary-foreground: #211d15;
+  --muted: #302d26;
+  --muted-foreground: #bbb4a7;
+  --border: #49443a;
+}
+* {
+  border-color: var(--border);
+}
+body {
+  min-height: 100dvh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Inter, Arial, Helvetica, sans-serif;
+}
+h1,
+h2,
+h3 {
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  letter-spacing: -0.04em;
+}
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+.app-safe-bottom {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+.glass-surface {
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  backdrop-filter: blur(18px);
+}
+@keyframes perfume-float {
+  0%,
+  100% {
+    transform: perspective(900px) translateY(0) rotateX(8deg) rotateY(-18deg)
+      rotateZ(-7deg);
+  }
+  50% {
+    transform: perspective(900px) translateY(-18px) rotateX(-9deg)
+      rotateY(22deg) rotateZ(7deg);
+  }
+}
+@keyframes aura-pulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+.perfume-float {
+  animation: perfume-float 7s ease-in-out infinite;
+  transform-style: preserve-3d;
+}
+.aura-pulse {
+  animation: aura-pulse 6s ease-in-out infinite;
+}
+.perfume-tilt {
+  transform: rotate(12deg) scale(1.04);
+}
+@keyframes perfume-spray-main {
+  0% {
+    transform: perspective(700px) translate3d(-50%, 0, -180px) scale(0.18);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.68;
+  }
+  100% {
+    transform: perspective(700px) translate3d(-50%, 0, 190px) scale(3.2);
+    opacity: 0;
+  }
+}
+@keyframes perfume-spray-left {
+  0% {
+    transform: translate(-50%, 0) scale(0.2);
+    opacity: 0;
+  }
+  22% {
+    opacity: 0.42;
+  }
+  100% {
+    transform: perspective(700px) translate3d(calc(-50% - 78px), 0, 140px)
+      scale(1.6);
+    opacity: 0;
+  }
+}
+@keyframes perfume-spray-right {
+  0% {
+    transform: translate(-50%, 0) scale(0.2);
+    opacity: 0;
+  }
+  22% {
+    opacity: 0.42;
+  }
+  100% {
+    transform: perspective(700px) translate3d(calc(-50% + 78px), 0, 140px)
+      scale(1.6);
+    opacity: 0;
+  }
+}
+@keyframes perfume-spray-near {
+  0% {
+    transform: perspective(700px) translate3d(-50%, 0, -240px) scale(0.12);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.62;
+  }
+  100% {
+    transform: perspective(700px) translate3d(-50%, 0, 300px) scale(4.8, 2.1);
+    opacity: 0;
+  }
+}
+.perfume-spray {
+  position: absolute;
+  left: 50%;
+  top: 18%;
+  width: 68px;
+  aspect-ratio: 1;
+  border-radius: 999px;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    rgba(225, 238, 255, 0.68) 0%,
+    rgba(189, 216, 247, 0.28) 35%,
+    transparent 72%
+  );
+  filter: blur(5px);
+}
+.perfume-spray-main {
+  animation: perfume-spray-main 0.82s cubic-bezier(0.16, 0.7, 0.35, 1) both;
+}
+.perfume-spray-left {
+  animation: perfume-spray-left 0.76s cubic-bezier(0.16, 0.7, 0.35, 1) both;
+}
+.perfume-spray-right {
+  animation: perfume-spray-right 0.76s cubic-bezier(0.16, 0.7, 0.35, 1) both;
+}
+.perfume-spray-near {
+  top: 16%;
+  width: 56px;
+  aspect-ratio: 0.78;
+  background: radial-gradient(
+    ellipse at 50% 70%,
+    rgba(237, 247, 255, 0.8) 0%,
+    rgba(188, 219, 250, 0.34) 34%,
+    transparent 72%
+  );
+  filter: blur(7px);
+  animation: perfume-spray-near 0.94s cubic-bezier(0.12, 0.72, 0.22, 1) both;
+}
+@keyframes bottle-cap-lift {
+  0%,
+  18% {
+    transform: translateY(12px);
+  }
+  36%,
+  64% {
+    transform: translateY(-36px) rotate(-1.5deg);
+  }
+  100% {
+    transform: translateY(12px);
+  }
+}
+.hero-bottle-cap {
+  position: absolute;
+  inset: 4.5%;
+  width: 91%;
+  height: 91%;
+  object-fit: contain;
+  clip-path: inset(0 0 76.5% 0);
+  pointer-events: none;
+  transform-origin: 50% 26%;
+  transform: translateY(12px);
+}
+.hero-bottle-cap-spraying {
+  animation: bottle-cap-lift 1.35s cubic-bezier(0.22, 0.72, 0.22, 1) both;
+}
+.hero-bottle-cap-spraying ~ .perfume-spray {
+  animation-delay: 0.42s;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
