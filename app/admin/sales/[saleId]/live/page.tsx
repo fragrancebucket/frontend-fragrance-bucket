@@ -8,6 +8,8 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:9000";
 type Dashboard = {
   saleName: string;
   saleStatus: string;
+  salePaused: boolean;
+  pauseDescription?: string;
   liveConnections: number;
   progress: Record<string, number>;
   auction: null | {
@@ -16,7 +18,12 @@ type Dashboard = {
     endsAt?: string;
     floor: number;
     participantCount: number;
-    product: { name: string; quantity_ml: number; base_price: number; image_url?: string | null };
+    product: {
+      name: string;
+      quantity_ml: number;
+      base_price: number;
+      image_url?: string | null;
+    };
   };
   bids: {
     amount: number;
@@ -90,9 +97,13 @@ export default function LiveDashboard({
             {dashboard.saleStatus}
           </p>
         </div>
-        {dashboard.auction && (
+        {dashboard.salePaused ? (
+          <p className="font-mono text-2xl font-semibold text-primary">
+            SALE PAUSED
+          </p>
+        ) : dashboard.auction ? (
           <p className="font-mono text-4xl font-semibold">{clock}</p>
-        )}
+        ) : null}
       </header>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Metric label="Live connections" value={dashboard.liveConnections} />
@@ -116,7 +127,13 @@ export default function LiveDashboard({
               <h2 className="text-2xl font-semibold">
                 {dashboard.auction.product.name}
               </h2>
-              {dashboard.auction.product.image_url && <img src={dashboard.auction.product.image_url} alt={dashboard.auction.product.name} className="mt-4 max-h-72 w-full rounded-lg border object-contain" />}
+              {dashboard.auction.product.image_url && (
+                <img
+                  src={dashboard.auction.product.image_url}
+                  alt={dashboard.auction.product.name}
+                  className="mt-4 max-h-72 w-full rounded-lg border object-contain"
+                />
+              )}
               <p className="mt-1 text-muted-foreground">
                 {dashboard.auction.product.quantity_ml}ml partial · Base ₹
                 {dashboard.auction.product.base_price} · Floor ₹
@@ -161,9 +178,15 @@ export default function LiveDashboard({
       ) : (
         <Card>
           <CardContent className="py-8">
-            <p className="font-medium">No active auction.</p>
+            <p className="font-medium">
+              {dashboard.salePaused
+                ? "Sale is on a break."
+                : "No active auction."}
+            </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Dashboard refreshes every second while waiting.
+              {dashboard.salePaused
+                ? dashboard.pauseDescription
+                : "Dashboard refreshes every second while waiting."}
             </p>
             {dashboard.lastResult && (
               <p className="mt-4">
@@ -190,8 +213,8 @@ export default function LiveDashboard({
                 <div>
                   <p className="font-medium">{result.productName}</p>
                   <p className="text-sm text-muted-foreground">
-                  {result.status === "sold"
-                    ? `Buyer: ${result.winner?.name || result.winner?.email || "Unknown"}${result.winner?.phone ? ` · ${result.winner.phone}` : ""}`
+                    {result.status === "sold"
+                      ? `Buyer: ${result.winner?.name || result.winner?.email || "Unknown"}${result.winner?.phone ? ` · ${result.winner.phone}` : ""}`
                       : "Unsold"}
                   </p>
                 </div>

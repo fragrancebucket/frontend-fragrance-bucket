@@ -38,9 +38,12 @@ type Sale = {
   products: Product[];
   active_auction?: {
     round_number: number;
-    ends_at: string;
+    ends_at?: string;
     product_id: string;
+    status: "running";
   } | null;
+  is_paused?: boolean;
+  pause_description?: string;
   results: Result[];
 };
 
@@ -63,6 +66,8 @@ export default function SalePage({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
+  const [pauseFormOpen, setPauseFormOpen] = useState(false);
+  const [pauseDescription, setPauseDescription] = useState("");
   useEffect(() => {
     params.then((value) => setId(value.saleId));
   }, [params]);
@@ -163,9 +168,21 @@ export default function SalePage({
         body: method === "DELETE" ? undefined : JSON.stringify(body),
       });
       load();
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed.");
+      return false;
     }
+  }
+  async function pauseSale(event: FormEvent) {
+    event.preventDefault();
+    if (!pauseDescription.trim()) return;
+    const paused = await action(`/admin/sales/${id}/pause`, {
+      description: pauseDescription.trim(),
+    });
+    if (!paused) return;
+    setPauseDescription("");
+    setPauseFormOpen(false);
   }
   async function move(product: Product, direction: -1 | 1) {
     if (!sale) return;
@@ -240,14 +257,16 @@ export default function SalePage({
           )}
           {sale.status === "live" && !sale.active_auction && (
             <>
-              <Button
-                onClick={() =>
-                  window.confirm("Start next auction?") &&
-                  action(`/admin/sales/${id}/start-next`)
-                }
-              >
-                Start next auction
-              </Button>
+              {!sale.is_paused && (
+                <Button
+                  onClick={() =>
+                    window.confirm("Start next auction?") &&
+                    action(`/admin/sales/${id}/start-next`)
+                  }
+                >
+                  Start next auction
+                </Button>
+              )}
               <Button
                 variant="outline"
                 onClick={() =>
@@ -271,19 +290,73 @@ export default function SalePage({
             {active ? (
               <p>
                 {active.name} · Round {sale.active_auction?.round_number} · Ends{" "}
-                {new Date(sale.active_auction!.ends_at).toLocaleTimeString(
-                  "en-IN",
-                  {
-                    timeZone: "Asia/Kolkata",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  },
-                )}{" "}
+                {sale.active_auction?.ends_at &&
+                  new Date(sale.active_auction.ends_at).toLocaleTimeString(
+                    "en-IN",
+                    {
+                      timeZone: "Asia/Kolkata",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    },
+                  )}{" "}
                 IST
               </p>
+            ) : sale.is_paused ? (
+              <div>
+                <p className="font-medium text-primary">Sale is on a break</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {sale.pause_description}
+                </p>
+                <Button
+                  className="mt-3"
+                  onClick={() => action(`/admin/sales/${id}/resume`)}
+                >
+                  Resume sale
+                </Button>
+              </div>
             ) : (
-              <p>Waiting to start next auction.</p>
+              <div>
+                <p>Waiting to start next auction.</p>
+                {!pauseFormOpen ? (
+                  <Button
+                    className="mt-3"
+                    variant="outline"
+                    onClick={() => setPauseFormOpen(true)}
+                  >
+                    Pause sale for a break
+                  </Button>
+                ) : (
+                  <form
+                    className="mt-3 max-w-lg space-y-2 rounded-lg border p-3"
+                    onSubmit={pauseSale}
+                  >
+                    <label className="grid gap-1 text-sm font-medium">
+                      Message for customers
+                      <textarea
+                        required
+                        maxLength={300}
+                        value={pauseDescription}
+                        onChange={(event) =>
+                          setPauseDescription(event.target.value)
+                        }
+                        placeholder="Example: Guys, we are on a tea break. We will be back in 15 minutes."
+                        className="min-h-24 rounded-md border bg-background px-3 py-2 font-normal"
+                      />
+                    </label>
+                    <div className="flex gap-2">
+                      <Button type="submit">Pause sale</Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setPauseFormOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
             )}
             <div className="mt-3 flex gap-4 text-sm underline">
               <a href={`/sales/${id}`}>Open customer page</a>
@@ -309,15 +382,21 @@ export default function SalePage({
               >
                 <Card className="transition-colors hover:bg-muted/60">
                   <CardContent className="flex gap-4 py-4">
-                    {product.image_url && <img src={product.image_url} alt={product.name} className="size-16 rounded-md border object-cover" />}
+                    {product.image_url && (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="size-16 rounded-md border object-cover"
+                      />
+                    )}
                     <div>
-                    <p className="text-sm capitalize text-muted-foreground">
-                      {product.status}
-                    </p>
-                    <p className="mt-1 font-semibold">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {product.quantity_ml}ml · ₹{product.base_price}
-                    </p>
+                      <p className="text-sm capitalize text-muted-foreground">
+                        {product.status}
+                      </p>
+                      <p className="mt-1 font-semibold">{product.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {product.quantity_ml}ml · ₹{product.base_price}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -564,8 +643,24 @@ export default function SalePage({
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {canDrag && <Button size="sm" variant="outline" onClick={(event) => { event.preventDefault(); event.stopPropagation(); action(`/admin/products/${product._id}/duplicate`); }}>Duplicate</Button>}
-                        <span className="text-sm text-muted-foreground">Open →</span>
+                        {canDrag && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              action(
+                                `/admin/products/${product._id}/duplicate`,
+                              );
+                            }}
+                          >
+                            Duplicate
+                          </Button>
+                        )}
+                        <span className="text-sm text-muted-foreground">
+                          Open →
+                        </span>
                       </div>
                     </CardContent>
                   </Card>

@@ -25,11 +25,19 @@ type Snapshot = {
     price?: number;
     completedAt: string;
   }>;
+  nextProduct?: {
+    name: string;
+    quantityMl: number;
+    imageUrl?: string | null;
+  } | null;
   transition?: {
     product: { name: string; quantity_ml: number };
     nextRound: number;
     participantCount: number;
     endsAt: string;
+  };
+  pause?: {
+    description: string;
   };
   auction?: {
     id: string;
@@ -99,6 +107,35 @@ function PastResults({ results }: { results: Snapshot["pastResults"] }) {
             </div>
           </article>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function UpNext({ product }: { product?: Snapshot["nextProduct"] }) {
+  if (!product) return null;
+
+  return (
+    <section className="mt-7 border-t pt-6">
+      <p className="text-xs font-bold tracking-[0.14em] text-primary">
+        UP NEXT
+      </p>
+      <div className="mt-3 flex items-center gap-3 rounded-2xl border bg-card p-3">
+        {product.imageUrl ? (
+          <img
+            src={product.imageUrl}
+            alt=""
+            className="size-16 rounded-xl bg-muted object-contain"
+          />
+        ) : (
+          <div className="size-16 rounded-xl bg-muted" aria-hidden="true" />
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-semibold">{product.name}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {product.quantityMl}ml partial
+          </p>
+        </div>
       </div>
     </section>
   );
@@ -246,10 +283,34 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
             {sale.transition.participantCount} people entered a bid this round.
           </p>
           <p className="mt-2 text-muted-foreground">
-            Moving eligible bidders to Round {sale.transition.nextRound}…
+            Starting Round {sale.transition.nextRound} — everyone can place a
+            bid.
           </p>
         </div>
+        <UpNext product={sale.nextProduct} />
         <PastResults results={sale.pastResults} />
+      </main>
+    );
+  if (sale.state === "paused" && sale.pause)
+    return (
+      <main className="mx-auto min-h-screen max-w-md px-4 py-12 app-safe-bottom">
+        <section className="rounded-3xl border border-primary/30 bg-card p-6 text-center shadow-sm">
+          <p className="text-xs font-bold tracking-[0.14em] text-primary">
+            SALE ON A SHORT BREAK
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold">
+            We&apos;ll be back shortly
+          </h1>
+          <p className="mt-4 rounded-xl bg-muted p-4 text-sm leading-6 text-foreground">
+            {sale.pause.description}
+          </p>
+          <p className="mt-5 text-sm text-muted-foreground">
+            The next product will begin when the sale resumes.
+          </p>
+        </section>
+        <UpNext product={sale.nextProduct} />
+        <PastResults results={sale.pastResults} />
+        <MobileNav />
       </main>
     );
   if (sale.state !== "running")
@@ -299,6 +360,7 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
               ? "Sale has ended. Thank you for participating."
               : "Waiting for the next product…"}
           </p>
+          <UpNext product={sale.nextProduct} />
           <PastResults results={sale.pastResults} />
         </div>
       </main>
@@ -330,6 +392,11 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
         <div className="p-4">
           <p className="text-xs font-bold tracking-[.14em] text-primary">
             ROUND {auction.round} / 5
+          </p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {auction.round === 5
+              ? "If the highest bid is still tied after this round, our tie-break algorithm will randomly select one of the tied highest bidders."
+              : "The highest bid wins the product immediately. If two or more people share that highest bid, a new round begins at that price and everyone can place a bid."}
           </p>
           <h1 className="mt-2 text-3xl font-semibold">
             {auction.product.name}
@@ -421,6 +488,7 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
           )}
         </div>
       </section>
+      <UpNext product={sale.nextProduct} />
       {confirmingBid && (
         <div
           role="dialog"
