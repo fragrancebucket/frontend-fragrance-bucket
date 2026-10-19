@@ -7,6 +7,7 @@ import {
   Gavel,
   LogOut,
   PlusCircle,
+  QrCode,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,13 @@ export default function AdminSidebar({
           >
             <Users className="size-4 shrink-0" />
             {open && "Users"}
+          </a>
+          <a
+            href="/admin/payment-settings"
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            <QrCode className="size-4 shrink-0" />
+            {open && "Payment settings"}
           </a>
         </nav>
         <div className="border-t p-3">

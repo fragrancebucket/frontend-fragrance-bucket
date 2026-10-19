@@ -25,6 +25,17 @@ type Detail = {
   } | null;
   winner?: { name?: string; email?: string; phone?: string } | null;
   manual_buyer_phone?: string | null;
+  payment_request?: {
+    id: string;
+    recipient?: string | null;
+    amount: number;
+    qr_url?: string | null;
+    dispatch_status: "queued" | "sending" | "sent" | "failed";
+    delivery_status?: string | null;
+    payment_status: "pending" | "paid" | "cancelled";
+    attempts: number;
+    last_error?: string | null;
+  } | null;
   bid_history?: {
     round: number;
     amount: number;
@@ -55,6 +66,8 @@ export default function ProductDetail({
   const [outcomePrice, setOutcomePrice] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const [outcomeError, setOutcomeError] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+  const [paymentBusy, setPaymentBusy] = useState(false);
   useEffect(() => {
     params.then(setIds);
   }, [params]);
@@ -128,13 +141,36 @@ export default function ProductDetail({
     else
       setOutcomeError(body.detail ?? "Could not update the product outcome.");
   }
+  async function updatePayment(path: string, body?: Record<string, string>) {
+    if (!session?.apiToken) return;
+    setPaymentBusy(true);
+    setPaymentError("");
+    const response = await fetch(`${API}${path}`, {
+      method: body ? "PATCH" : "POST",
+      headers: {
+        Authorization: `Bearer ${session.apiToken}`,
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const payload = await response.json().catch(() => ({}));
+    setPaymentBusy(false);
+    if (response.ok) window.location.reload();
+    else setPaymentError(payload.detail ?? "Could not update payment status.");
+  }
   if (!detail || !ids)
     return (
       <main className="grid min-h-screen place-items-center">
         Loading product…
       </main>
     );
-  const { product, result, winner, bid_history: bids = [] } = detail;
+  const {
+    product,
+    result,
+    winner,
+    bid_history: bids = [],
+    payment_request: paymentRequest,
+  } = detail;
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-6 py-12">
       <a
@@ -399,6 +435,91 @@ export default function ProductDetail({
               </p>
             </CardContent>
           </Card>
+          {paymentRequest && (
+            <Card>
+              <CardHeader>
+                <CardTitle>WhatsApp payment request</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide">
+                  <span className="rounded-full bg-muted px-3 py-1">
+                    Send: {paymentRequest.dispatch_status}
+                  </span>
+                  <span className="rounded-full bg-muted px-3 py-1">
+                    Payment: {paymentRequest.payment_status}
+                  </span>
+                  {paymentRequest.delivery_status && (
+                    <span className="rounded-full bg-muted px-3 py-1">
+                      WhatsApp: {paymentRequest.delivery_status}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  To {paymentRequest.recipient || "invalid phone number"} · ₹
+                  {paymentRequest.amount} · {paymentRequest.attempts} send
+                  attempt
+                  {paymentRequest.attempts === 1 ? "" : "s"}
+                </p>
+                {paymentRequest.qr_url && (
+                  <img
+                    src={paymentRequest.qr_url}
+                    alt="Payment QR code sent to the winner"
+                    className="size-36 rounded-lg border bg-white object-contain p-2"
+                  />
+                )}
+                {paymentRequest.last_error && (
+                  <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">
+                    {paymentRequest.last_error}
+                  </p>
+                )}
+                {paymentError && (
+                  <p role="alert" className="text-sm text-red-600">
+                    {paymentError}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {paymentRequest.payment_status === "pending" && (
+                    <>
+                      <Button
+                        disabled={paymentBusy}
+                        onClick={() =>
+                          updatePayment(
+                            `/admin/payment-requests/${paymentRequest.id}/payment-status`,
+                            { payment_status: "paid" },
+                          )
+                        }
+                      >
+                        Mark paid
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={paymentBusy}
+                        onClick={() =>
+                          updatePayment(
+                            `/admin/payment-requests/${paymentRequest.id}/payment-status`,
+                            { payment_status: "cancelled" },
+                          )
+                        }
+                      >
+                        Mark cancelled
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={paymentBusy}
+                        onClick={() =>
+                          updatePayment(
+                            `/admin/payment-requests/${paymentRequest.id}/resend`,
+                          )
+                        }
+                      >
+                        Resend WhatsApp
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Bid history</CardTitle>

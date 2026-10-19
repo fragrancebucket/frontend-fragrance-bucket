@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUpRight, LogOut, Menu } from "lucide-react";
+import { ArrowDown, ArrowUpRight, LogOut, Menu, UserRound } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import MobileNav from "@/components/mobile-nav";
 import {
@@ -78,14 +78,27 @@ export default function Home() {
         <div className="flex items-center gap-1">
           <ThemeToggle />
           {session ? (
-            <button
-              type="button"
-              onClick={() => signOut({ callbackUrl: "/" })}
-              className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              aria-label="Log out"
-            >
-              <LogOut aria-hidden="true" className="size-[18px]" />
-            </button>
+            <>
+              <a
+                href="/my-auctions"
+                className="grid size-11 overflow-hidden place-items-center rounded-full border border-border bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Open profile and my auctions"
+              >
+                {session.user?.image ? (
+                  <img src={session.user.image} alt="" className="size-full object-cover" />
+                ) : (
+                  <UserRound aria-hidden="true" className="size-[18px]" />
+                )}
+              </a>
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                aria-label="Log out"
+              >
+                <LogOut aria-hidden="true" className="size-[18px]" />
+              </button>
+            </>
           ) : (
             <button
               type="button"

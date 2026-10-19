@@ -7,6 +7,7 @@ import MobileNav from "@/components/mobile-nav";
 type Snapshot = {
   state: string;
   saleName: string;
+  serverNow: string;
   lastResult?: {
     status: string;
     price?: number;
@@ -183,17 +184,30 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
   const [selectedIncrease, setSelectedIncrease] = useState(0);
   const [message, setMessage] = useState("");
   const [clockNow, setClockNow] = useState(Date.now());
+  const [serverOffset, setServerOffset] = useState(0);
   const [hasPhone, setHasPhone] = useState<boolean | null>(null);
   const [phone, setPhone] = useState("");
   const [confirmingBid, setConfirmingBid] = useState(false);
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   async function load() {
+    if (!session?.apiToken) return;
     const response = await fetch(`${API}/sales/${saleId}`, {
-      headers: { Authorization: `Bearer ${session?.apiToken ?? ""}` },
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${session.apiToken}` },
     });
-    if (response.ok) setSale(await response.json());
+    if (response.ok) {
+      const snapshot = (await response.json()) as Snapshot;
+      const serverTime = Date.parse(snapshot.serverNow);
+      if (Number.isFinite(serverTime)) {
+        const offset = serverTime - Date.now();
+        setServerOffset(offset);
+        setClockNow(Date.now() + offset);
+      }
+      setSale(snapshot);
+    }
   }
   useEffect(() => {
+    if (!session?.apiToken) return;
     load();
     const timer = setInterval(load, 1000);
     return () => clearInterval(timer);
@@ -208,9 +222,10 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
   }, [session?.apiToken]);
   useEffect(() => {
     if (!sale?.auction) return;
-    const timer = setInterval(() => setClockNow(Date.now()), 250);
+    setClockNow(Date.now() + serverOffset);
+    const timer = setInterval(() => setClockNow(Date.now() + serverOffset), 250);
     return () => clearInterval(timer);
-  }, [sale?.auction?.endsAt]);
+  }, [sale?.auction?.endsAt, serverOffset]);
   useEffect(() => {
     if (!session?.apiToken) return;
     const ws = new WebSocket(
@@ -261,7 +276,7 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
     );
     if (response.ok) load();
   }
-  if (!sale)
+  if (status === "loading" || !sale)
     return (
       <main className="grid min-h-screen place-items-center">
         Loading sale…
@@ -310,6 +325,19 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
         </section>
         <UpNext product={sale.nextProduct} />
         <PastResults results={sale.pastResults} />
+        <MobileNav />
+      </main>
+    );
+  if (sale.state === "settling" && sale.auction)
+    return (
+      <main className="mx-auto grid min-h-screen max-w-md place-items-center px-5 text-center app-safe-bottom">
+        <section className="w-full rounded-3xl border bg-card p-7 shadow-sm">
+          <p className="text-xs font-bold tracking-[0.14em] text-primary">ROUND CLOSING</p>
+          <h1 className="mt-2 text-3xl font-semibold">{sale.auction.product.name}</h1>
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
+            We&apos;re finalising this round. The result will appear shortly.
+          </p>
+        </section>
         <MobileNav />
       </main>
     );

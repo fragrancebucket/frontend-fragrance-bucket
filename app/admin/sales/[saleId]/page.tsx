@@ -95,6 +95,9 @@ export default function SalePage({
   }
   useEffect(() => {
     load();
+    if (!id || !session?.apiToken) return;
+    const timer = window.setInterval(load, 1000);
+    return () => window.clearInterval(timer);
   }, [id, session?.apiToken]);
   async function add(event: FormEvent) {
     event.preventDefault();
