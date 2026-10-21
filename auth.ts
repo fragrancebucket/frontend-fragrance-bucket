@@ -5,8 +5,11 @@ declare module "next-auth" { interface Session { apiToken?: string; role?: strin
 declare module "@auth/core/jwt" { interface JWT { apiToken?: string; role?: string; } }
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const THIRTY_DAYS = 30 * 24 * 60 * 60;
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [Google], session: { strategy: "jwt" },
+  providers: [Google],
+  session: { strategy: "jwt", maxAge: THIRTY_DAYS },
+  jwt: { maxAge: THIRTY_DAYS },
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account?.provider === "google" && profile?.email) {

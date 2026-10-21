@@ -142,43 +142,6 @@ function UpNext({ product }: { product?: Snapshot["nextProduct"] }) {
   );
 }
 
-function PhoneModal({
-  phone,
-  setPhone,
-  savePhone,
-}: {
-  phone: string;
-  setPhone: (value: string) => void;
-  savePhone: () => void;
-}) {
-  return (
-    <main className="grid min-h-screen place-items-center bg-muted/30 p-6">
-      <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl">
-        <p className="text-sm font-semibold text-red-600">ONE-TIME STEP</p>
-        <h1 className="mt-2 text-2xl font-semibold">Add your phone number</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          We use this only to contact you if you win an auction.
-        </p>
-        <input
-          className="mt-5 w-full rounded-md border bg-background px-3 py-2"
-          type="tel"
-          autoComplete="tel"
-          placeholder="Phone number, e.g. +91 9876543210"
-          value={phone}
-          onChange={(event) => setPhone(event.target.value)}
-        />
-        <button
-          className="mt-3 w-full rounded-md bg-primary px-4 py-3 font-medium text-primary-foreground disabled:opacity-50"
-          disabled={!phone.trim()}
-          onClick={savePhone}
-        >
-          Save and continue
-        </button>
-      </div>
-    </main>
-  );
-}
-
 export default function AuctionClient({ saleId }: { saleId: string }) {
   const [sale, setSale] = useState<Snapshot>();
   const [selectedIncrease, setSelectedIncrease] = useState(0);
@@ -186,7 +149,6 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
   const [clockNow, setClockNow] = useState(Date.now());
   const [serverOffset, setServerOffset] = useState(0);
   const [hasPhone, setHasPhone] = useState<boolean | null>(null);
-  const [phone, setPhone] = useState("");
   const [confirmingBid, setConfirmingBid] = useState(false);
   const { data: session, status } = useSession();
   async function load() {
@@ -221,6 +183,11 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
       .then((profile) => profile && setHasPhone(profile.hasPhone));
   }, [session?.apiToken]);
   useEffect(() => {
+    const handlePhoneSaved = () => setHasPhone(true);
+    window.addEventListener("fragrance-bucket:phone-saved", handlePhoneSaved);
+    return () => window.removeEventListener("fragrance-bucket:phone-saved", handlePhoneSaved);
+  }, []);
+  useEffect(() => {
     if (!sale?.auction) return;
     setClockNow(Date.now() + serverOffset);
     const timer = setInterval(() => setClockNow(Date.now() + serverOffset), 250);
@@ -242,21 +209,6 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
     () => setSelectedIncrease(0),
     [sale?.auction?.id, sale?.auction?.round, sale?.auction?.myBid],
   );
-  async function savePhone() {
-    const response = await fetch(`${API}/me/phone`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session?.apiToken ?? ""}`,
-      },
-      body: JSON.stringify({ phone }),
-    });
-    const body = await response.json();
-    if (response.ok) {
-      setHasPhone(true);
-      setMessage("Phone number saved. You can now bid.");
-    } else setMessage(body.detail ?? "Could not save phone number.");
-  }
   async function submit() {
     if (!sale?.auction || !hasPhone) return;
     setConfirmingBid(false);
@@ -281,10 +233,6 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
       <main className="grid min-h-screen place-items-center">
         Loading sale…
       </main>
-    );
-  if (hasPhone === false)
-    return (
-      <PhoneModal phone={phone} setPhone={setPhone} savePhone={savePhone} />
     );
   if (sale.state === "transition" && sale.transition)
     return (
@@ -443,24 +391,6 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
             </span>
             {auction.participantCount} people placed a bid
           </p>
-          {auction.myBid && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="mt-4 flex items-center gap-3 rounded-2xl border border-emerald-600/25 bg-emerald-50 p-3 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100"
-            >
-              <CheckCircle2
-                aria-hidden="true"
-                className="size-6 shrink-0 text-emerald-600"
-              />
-              <div>
-                <p className="text-sm font-bold">Your bid is accepted</p>
-                <p className="text-sm">
-                  You are bidding ₹{auction.myBid} in this round.
-                </p>
-              </div>
-            </div>
-          )}
           <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-muted p-3 text-sm">
             <div>
               <p className="text-muted-foreground">Starting price</p>
@@ -475,6 +405,24 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
           </div>
           {auction.eligible ? (
             <div className="mt-6 space-y-4">
+              {auction.myBid && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex items-center gap-3 rounded-2xl border border-emerald-600/25 bg-emerald-50 p-3 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100"
+                >
+                  <CheckCircle2
+                    aria-hidden="true"
+                    className="size-6 shrink-0 text-emerald-600"
+                  />
+                  <div>
+                    <p className="text-sm font-bold">Your bid is accepted</p>
+                    <p className="text-sm">
+                      You are bidding ₹{auction.myBid} in this round.
+                    </p>
+                  </div>
+                </div>
+              )}
               <p className="text-sm text-muted-foreground">
                 Tap preset buttons repeatedly to build your bid.
               </p>
@@ -502,7 +450,7 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
                 Reset selection
               </button>
               <button
-                className="fixed inset-x-3 bottom-18 z-30 min-h-12 rounded-xl bg-primary px-4 py-2.5 font-bold text-primary-foreground shadow-xl md:static md:w-full"
+                className="min-h-12 w-full rounded-xl bg-primary px-4 py-2.5 font-bold text-primary-foreground shadow-xl"
                 disabled={seconds === 0}
                 onClick={() => setConfirmingBid(true)}
               >

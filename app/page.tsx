@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUpRight, LogOut, Menu, UserRound } from "lucide-react";
+import { ArrowDown, ArrowUpRight, LogOut, Menu } from "lucide-react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import MobileNav from "@/components/mobile-nav";
 import {
@@ -11,6 +11,7 @@ import {
   type LiveSaleCardData,
 } from "@/components/home-live-card";
 import ThemeToggle from "@/components/theme-toggle";
+import ProfileAvatar from "@/components/profile-avatar";
 import { Button } from "@/components/ui/button";
 
 const HeroBottle = dynamic(() => import("@/components/hero-bottle"), {
@@ -80,15 +81,11 @@ export default function Home() {
           {session ? (
             <>
               <a
-                href="/my-auctions"
+                href="/profile"
                 className="grid size-11 overflow-hidden place-items-center rounded-full border border-border bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-label="Open profile and my auctions"
+                aria-label="Open profile"
               >
-                {session.user?.image ? (
-                  <img src={session.user.image} alt="" className="size-full object-cover" />
-                ) : (
-                  <UserRound aria-hidden="true" className="size-[18px]" />
-                )}
+                <ProfileAvatar name={session.user?.name} image={session.user?.image} />
               </a>
               <button
                 type="button"

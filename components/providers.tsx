@@ -1,3 +1,12 @@
 "use client";
 import { SessionProvider } from "next-auth/react";
-export default function Providers({ children }: { children: React.ReactNode }) { return <SessionProvider>{children}</SessionProvider>; }
+import WhatsAppOnboarding from "@/components/whatsapp-onboarding";
+
+export default function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <SessionProvider>
+      {children}
+      <WhatsAppOnboarding />
+    </SessionProvider>
+  );
+}
