@@ -13,7 +13,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account?.provider === "google" && profile?.email) {
-        const response = await fetch(`${API}/auth/google/exchange`, { method: "POST", headers: { "Content-Type": "application/json", "X-Exchange-Secret": process.env.BACKEND_EXCHANGE_SECRET ?? "" }, body: JSON.stringify({ email: profile.email, name: profile.name, image: profile.picture }), cache: "no-store" });
+        const response = await fetch(`${API}/auth/google/exchange`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Exchange-Secret": process.env.BACKEND_EXCHANGE_SECRET ?? "",
+          },
+          body: JSON.stringify({ email: profile.email, name: profile.name, image: profile.picture }),
+          cache: "no-store",
+          signal: AbortSignal.timeout(15_000),
+        });
         if (!response.ok) throw new Error("Backend identity exchange failed.");
         const identity = await response.json() as { accessToken: string; role: string };
         token.apiToken = identity.accessToken; token.role = identity.role;
