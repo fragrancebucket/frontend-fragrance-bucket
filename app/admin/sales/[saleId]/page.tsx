@@ -1,5 +1,5 @@
 "use client";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
@@ -68,10 +68,14 @@ export default function SalePage({
   const [editing, setEditing] = useState<Product | null>(null);
   const [pauseFormOpen, setPauseFormOpen] = useState(false);
   const [pauseDescription, setPauseDescription] = useState("");
+  const [productSaveState, setProductSaveState] = useState<
+    "idle" | "uploading" | "saving"
+  >("idle");
+  const loadInFlight = useRef(false);
   useEffect(() => {
     params.then((value) => setId(value.saleId));
   }, [params]);
-  async function api(path: string, init: RequestInit = {}) {
+  const api = useCallback(async (path: string, init: RequestInit = {}) => {
     const response = await fetch(`${API}${path}`, {
       ...init,
       headers: {
@@ -84,25 +88,37 @@ export default function SalePage({
     if (!response.ok)
       throw new Error(body.detail?.message ?? body.detail ?? "Request failed.");
     return body;
-  }
-  async function load() {
-    if (!id || !session?.apiToken) return;
+  }, [session?.apiToken]);
+  const load = useCallback(async () => {
+    if (!id || !session?.apiToken || loadInFlight.current) return;
+    loadInFlight.current = true;
     try {
       setSale(await api(`/admin/sales/${id}`));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not load sale.");
+    } finally {
+      loadInFlight.current = false;
     }
-  }
+  }, [api, id, session?.apiToken]);
   useEffect(() => {
-    load();
-    if (!id || !session?.apiToken) return;
-    const timer = window.setInterval(load, 1000);
+    void load();
+  }, [load]);
+  useEffect(() => {
+    if (!id || !session?.apiToken || sale?.status !== "live") return;
+    const refreshEvery = sale.active_auction ? 1000 : 5000;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, refreshEvery);
     return () => window.clearInterval(timer);
-  }, [id, session?.apiToken]);
+  }, [id, load, sale?.active_auction, sale?.status, session?.apiToken]);
   async function add(event: FormEvent) {
     event.preventDefault();
+    if (productSaveState !== "idle") return;
     try {
+      setError("");
+      setProductSaveState(imageFile ? "uploading" : "saving");
       const uploadedImageUrl = await uploadImage();
+      setProductSaveState("saving");
       await api(
         editing
           ? `/admin/products/${editing._id}`
@@ -128,9 +144,11 @@ export default function SalePage({
       setImageFile(null);
       setImagePreview("");
       setEditing(null);
-      load();
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not add product.");
+    } finally {
+      setProductSaveState("idle");
     }
   }
   function selectImage(file: File | null) {
@@ -584,7 +602,17 @@ export default function SalePage({
                 )}
               </div>
               <div className="flex gap-2 sm:col-span-2">
-                <Button>{editing ? "Save changes" : "Add product"}</Button>
+                <Button disabled={productSaveState !== "idle"}>
+                  {productSaveState === "uploading"
+                    ? "Uploading image…"
+                    : productSaveState === "saving"
+                      ? editing
+                        ? "Saving changes…"
+                        : "Adding product…"
+                      : editing
+                        ? "Save changes"
+                        : "Add product"}
+                </Button>
                 {editing && (
                   <Button
                     type="button"
@@ -602,6 +630,14 @@ export default function SalePage({
                   </Button>
                 )}
               </div>
+              {productSaveState === "uploading" && (
+                <p
+                  aria-live="polite"
+                  className="text-sm text-muted-foreground sm:col-span-2"
+                >
+                  Uploading the image to ImageKit before the product is saved.
+                </p>
+              )}
             </form>
           </CardContent>
         </Card>
