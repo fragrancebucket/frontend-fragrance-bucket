@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { CheckCircle2, MessageCircle } from "lucide-react";
 import MobileNav from "@/components/mobile-nav";
@@ -151,29 +151,37 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
   const [hasPhone, setHasPhone] = useState<boolean | null>(null);
   const [confirmingBid, setConfirmingBid] = useState(false);
   const { data: session, status } = useSession();
-  async function load() {
-    if (!session?.apiToken) return;
-    const response = await fetch(`${API}/sales/${saleId}`, {
-      cache: "no-store",
-      headers: { Authorization: `Bearer ${session.apiToken}` },
-    });
-    if (response.ok) {
-      const snapshot = (await response.json()) as Snapshot;
-      const serverTime = Date.parse(snapshot.serverNow);
-      if (Number.isFinite(serverTime)) {
-        const offset = serverTime - Date.now();
-        setServerOffset(offset);
-        setClockNow(Date.now() + offset);
+  const loadInFlight = useRef(false);
+  const load = useCallback(async () => {
+    if (!session?.apiToken || loadInFlight.current) return;
+    loadInFlight.current = true;
+    try {
+      const response = await fetch(`${API}/sales/${saleId}`, {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${session.apiToken}` },
+      });
+      if (response.ok) {
+        const snapshot = (await response.json()) as Snapshot;
+        const serverTime = Date.parse(snapshot.serverNow);
+        if (Number.isFinite(serverTime)) {
+          const offset = serverTime - Date.now();
+          setServerOffset(offset);
+          setClockNow(Date.now() + offset);
+        }
+        setSale(snapshot);
       }
-      setSale(snapshot);
+    } finally {
+      loadInFlight.current = false;
     }
-  }
+  }, [saleId, session?.apiToken]);
   useEffect(() => {
     if (!session?.apiToken) return;
-    load();
-    const timer = setInterval(load, 1000);
+    void load();
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 15_000);
     return () => clearInterval(timer);
-  }, [saleId, session?.apiToken]);
+  }, [load, session?.apiToken]);
   useEffect(() => {
     if (!session?.apiToken) return;
     fetch(`${API}/me`, {
@@ -198,9 +206,9 @@ export default function AuctionClient({ saleId }: { saleId: string }) {
     const ws = new WebSocket(
       `${API.replace(/^http/, "ws")}/ws/sales/${saleId}?token=${encodeURIComponent(session.apiToken)}`,
     );
-    ws.onmessage = () => load();
+    ws.onmessage = () => void load();
     return () => ws.close();
-  }, [saleId, session?.apiToken]);
+  }, [load, saleId, session?.apiToken]);
   const bidBase = sale?.auction
     ? Math.max(sale.auction.floor, sale.auction.myBid ?? 0)
     : 0;

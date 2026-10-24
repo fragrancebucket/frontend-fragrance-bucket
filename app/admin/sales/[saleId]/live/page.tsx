@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -49,21 +49,38 @@ export default function LiveDashboard({
   const [saleId, setSaleId] = useState("");
   const [dashboard, setDashboard] = useState<Dashboard>();
   const [clockNow, setClockNow] = useState(Date.now());
+  const loadInFlight = useRef(false);
   useEffect(() => {
     params.then(({ saleId }) => setSaleId(saleId));
   }, [params]);
+  const load = useCallback(async () => {
+    if (!saleId || !session?.apiToken || loadInFlight.current) return;
+    loadInFlight.current = true;
+    try {
+      const response = await fetch(`${API}/admin/sales/${saleId}/live-dashboard`, {
+        headers: { Authorization: `Bearer ${session.apiToken}` },
+      });
+      if (response.ok) setDashboard(await response.json());
+    } finally {
+      loadInFlight.current = false;
+    }
+  }, [saleId, session?.apiToken]);
+  useEffect(() => {
+    void load();
+    if (!saleId || !session?.apiToken) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [load, saleId, session?.apiToken]);
   useEffect(() => {
     if (!saleId || !session?.apiToken) return;
-    const load = () =>
-      fetch(`${API}/admin/sales/${saleId}/live-dashboard`, {
-        headers: { Authorization: `Bearer ${session.apiToken}` },
-      })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((data) => data && setDashboard(data));
-    load();
-    const timer = setInterval(load, 1000);
-    return () => clearInterval(timer);
-  }, [saleId, session?.apiToken]);
+    const ws = new WebSocket(
+      `${API.replace(/^http/, "ws")}/ws/sales/${saleId}?token=${encodeURIComponent(session.apiToken)}`,
+    );
+    ws.onmessage = () => void load();
+    return () => ws.close();
+  }, [load, saleId, session?.apiToken]);
   useEffect(() => {
     const timer = setInterval(() => setClockNow(Date.now()), 250);
     return () => clearInterval(timer);
